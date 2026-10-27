@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>생태계 회귀 시뮬레이션</title>
+<style>
+:root{--ink:#111;--bg:#f4f6f9;--card:#fff;--line:#6b7280;--accent:#0b4f9c;--warn:#a8001c;--band:#e3eefb}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR","Noto Sans CJK KR",sans-serif;font-size:18px;line-height:1.55;color:var(--ink);background:var(--bg)}
+.top{position:sticky;top:0;z-index:10;background:#12263f;color:#fff;padding:10px 20px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 20px}
+.top h1{margin:0;font-size:1.3rem}
+.top h1 small{font-weight:normal;font-size:.9rem;opacity:.9;margin-left:8px}
+.notice{margin:0;background:#ffe27a;color:#111;font-weight:bold;padding:4px 14px;border-radius:6px;border:2px solid #111}
+.layout{display:grid;grid-template-columns:minmax(330px,390px) 1fr;gap:20px;padding:16px;align-items:start}
+@media (max-width:960px){.layout{grid-template-columns:1fr}}
+.panel,.block{background:var(--card);border:2px solid #cfd5de;border-radius:10px;padding:14px 16px}
+.panel{display:flex;flex-direction:column;gap:14px}
+.step{border-bottom:2px dashed #cfd5de;padding-bottom:14px}
+.step:last-child{border-bottom:0;padding-bottom:0}
+.step h2,.block h2{margin:0 0 8px;font-size:1.1rem}
+.n{display:inline-block;background:var(--accent);color:#fff;border-radius:50%;width:1.6em;height:1.6em;text-align:center;margin-right:6px;font-size:.95rem}
+label{display:block;font-weight:bold;margin-top:8px}
+input[type=number],input[type=password],select{width:100%;font-size:1rem;padding:8px;border:2px solid var(--line);border-radius:6px;background:#fff}
+input[type=range]{width:100%}
+fieldset{border:2px solid #cfd5de;border-radius:8px;margin:10px 0 0;padding:6px 10px}
+legend{font-weight:bold;padding:0 4px}
+.radio{display:flex;align-items:center;gap:8px;font-weight:normal;margin:4px 0;cursor:pointer}
+.radio input{width:20px;height:20px}
+button{font-family:inherit;font-size:1rem;min-height:48px;padding:8px 16px;border-radius:8px;border:2px solid var(--accent);background:#fff;color:var(--accent);font-weight:bold;cursor:pointer}
+button:hover{background:#eaf2fc}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:var(--accent);color:#fff;width:100%;font-size:1.15rem}
+button.primary:hover{background:#093f7c}
+button.full{width:100%;margin-top:8px}
+:focus-visible{outline:4px solid #ff9f1c;outline-offset:2px}
+.hint{font-size:.9rem;color:#333;margin:6px 0 0}
+.info{background:#f1f4f8;border-radius:6px;padding:6px 10px;margin:8px 0 0;font-size:.95rem}
+.dual{position:relative;height:44px;margin-top:6px}
+.dual-track{position:absolute;left:14px;right:14px;top:19px;height:6px;background:#c8ced8;border-radius:3px}
+.dual-fill{position:absolute;top:0;height:6px;background:var(--accent);border-radius:3px;left:calc((100% + 0px) * var(--lo) / 100);width:calc(100% * (var(--hi) - var(--lo)) / 100)}
+.dual input[type=range]{position:absolute;left:0;top:0;width:100%;height:44px;margin:0;background:none;pointer-events:none;-webkit-appearance:none;appearance:none}
+.dual input[type=range]::-webkit-slider-runnable-track{background:transparent;height:44px;border:0}
+.dual input[type=range]::-moz-range-track{background:transparent;height:44px;border:0}
+.dual input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;pointer-events:auto;width:28px;height:28px;border-radius:50%;background:var(--accent);border:3px solid #fff;box-shadow:0 0 0 2px var(--accent);cursor:pointer;margin-top:8px}
+.dual input[type=range]::-moz-range-thumb{pointer-events:auto;width:22px;height:22px;border-radius:50%;background:var(--accent);border:3px solid #fff;box-shadow:0 0 0 2px var(--accent);cursor:pointer}
+.range-text{font-weight:bold;text-align:center;font-size:1.1rem}
+.main{display:flex;flex-direction:column;gap:16px;min-width:0}
+.tabs{display:flex;gap:8px;flex-wrap:wrap}
+.tabs button{border-radius:8px 8px 0 0}
+.tabs button[aria-selected=true]{background:var(--accent);color:#fff}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;font-size:1rem}
+.legend label{display:flex;align-items:center;gap:6px;margin:0;font-weight:normal;cursor:pointer}
+.legend input{width:20px;height:20px}
+.legend span.it{display:flex;align-items:center;gap:6px}
+.ico{flex:none}
+.chartbox{background:#fff;border:2px solid #cfd5de;border-radius:10px;padding:6px}
+.chartbox svg{display:block;width:100%;height:auto}
+.warn{background:#fdecee;border:2px solid var(--warn);color:#5a000f;border-radius:8px;padding:8px 12px;font-weight:bold}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.card{border:3px solid var(--accent);border-radius:10px;padding:12px 16px;background:#fff}
+.card.out{border-color:#7a3d00}
+.card h3{margin:0;font-size:1rem}
+.card .big{font-size:2.6rem;font-weight:bold;line-height:1.2}
+.card .sent{font-size:1.15rem;font-weight:bold}
+.card small{display:block;color:#333}
+table{border-collapse:collapse;width:100%;font-size:1rem}
+th,td{border:1px solid #8a919c;padding:6px 8px;text-align:center}
+th{background:#e8edf4}
+td.l,th.l{text-align:left}
+tr.sel td{background:#fff6d6}
+td.g-test{background:#fff1e0;font-weight:bold}
+td.g-new{background:#eceff3}
+.tablewrap{max-height:520px;overflow:auto;background:#fff;border:2px solid #cfd5de;border-radius:10px}
+.q{background:#f7fbff;border-left:6px solid var(--accent);padding:8px 14px;margin:8px 0;border-radius:4px;font-size:1.1rem}
+.sw{display:flex;align-items:center;gap:8px;font-weight:bold;margin-top:0}
+.sw input{width:24px;height:24px}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>서식지가 파괴되면 생물은 몇 마리나 남을까? <small>회귀 모델로 예측해 보기</small></h1>
+  <p class="notice" role="note">※ 이 데이터는 수업용 가상 데이터입니다</p>
+</header>
+
+<div class="layout">
+  <aside class="panel" aria-label="조작 패널">
+    <section class="step">
+      <h2><span class="n">1</span>데이터 만들기</h2>
+      <label for="seed">데이터 시드 (같은 숫자면 같은 데이터)</label>
+      <input id="seed" type="number" step="1" inputmode="numeric">
+      <label for="noise">측정 오차(잡음): <span id="noiseVal"></span></label>
+      <input id="noise" type="range" min="0" max="3" step="0.1">
+      <label for="stepSel">데이터 간격</label>
+      <select id="stepSel">
+        <option value="5">5%마다</option>
+        <option value="2">2%마다</option>
+        <option value="1">1%마다</option>
+      </select>
+    </section>
+
+    <section class="step">
+      <h2><span class="n">2</span>학습 범위 정하기</h2>
+      <p class="hint" style="margin-top:0">손잡이 두 개를 움직여 AI가 공부할 진행률 구간을 고릅니다.</p>
+      <div class="dual" id="dual" style="--lo:0;--hi:40">
+        <div class="dual-track"><div class="dual-fill" id="dualFill"></div></div>
+        <input id="loR" type="range" min="0" max="100" step="5" value="0" aria-label="학습 범위 시작 진행률(%)">
+        <input id="hiR" type="range" min="0" max="100" step="5" value="40" aria-label="학습 범위 끝 진행률(%)">
+      </div>
+      <div class="range-text" id="rangeText"></div>
+      <fieldset id="targetSet"><legend>예측할 생물 (하나만)</legend></fieldset>
+    </section>
+
+    <section class="step">
+      <h2><span class="n">3</span>훈련/테스트 나누기</h2>
+      <p class="hint" style="margin-top:0">학습 범위 안의 데이터를 훈련 70%, 테스트 30%로 무작위로 나눕니다. 훈련 데이터로 직선을 만들고, 테스트 데이터로 처음 보는 데이터를 얼마나 잘 맞히는지 확인합니다.</p>
+      <label for="splitSeed">나누기 시드</label>
+      <input id="splitSeed" type="number" step="1" inputmode="numeric">
+      <div class="info" id="splitInfo"></div>
+    </section>
+
+    <section class="step">
+      <h2><span class="n">4</span>학습하기</h2>
+      <button class="primary" id="learnBtn" type="button">학습하기</button>
+      <p class="hint">훈련 데이터로 최소제곱법 직선(단순 선형회귀)을 계산합니다.</p>
+    </section>
+
+    <section class="step">
+      <h2><span class="n">5</span>내보내기 (코랩 실습용)</h2>
+      <button class="full" id="dlTrain" type="button">학습 범위 데이터 CSV 받기</button>
+      <button class="full" id="dlNew" type="button">새 구간 데이터 CSV 받기</button>
+    </section>
+
+    <section class="step">
+      <h2>교사 모드</h2>
+      <button class="full" id="teacherBtn" type="button" style="margin-top:0">교사 모드 (비밀번호)</button>
+      <form id="teacherForm" hidden autocomplete="off">
+        <label for="teacherPw">비밀번호</label>
+        <input id="teacherPw" type="password" autocomplete="off" inputmode="text">
+        <button class="full primary" type="submit">확인</button>
+        <p class="warn" id="teacherMsg" role="alert" style="margin:8px 0 0" hidden></p>
+      </form>
+    </section>
+  </aside>
+
+  <section class="main" aria-label="그래프와 결과">
+    <div class="tabs" role="tablist" id="tabs"></div>
+    <div id="viewChart">
+      <div class="legend" id="legend" style="margin-bottom:8px"></div>
+      <div class="chartbox"><svg id="chart" viewBox="0 0 800 470" role="img" aria-label="서식지 파괴 진행률에 따른 개체 수 그래프"></svg></div>
+      <div id="chartNote" style="margin-top:8px"></div>
+    </div>
+    <div id="viewTable" hidden>
+      <div class="tablewrap" id="tableWrap"></div>
+    </div>
+    <div class="block" id="results"></div>
+    <div class="block" id="teacherBox" hidden></div>
+    <div class="block" id="think">
+      <h2>생각해 보기</h2>
+      <div class="q"><b>AI 측면:</b> 이 모델은 진행률 몇 %까지 믿을 수 있을까? 그렇게 생각한 까닭은 무엇인가?</div>
+      <div class="q"><b>과학 측면:</b> 생태계 평형이 무너지기 시작하는 지점은 어디일까? 먹이관계를 근거로 설명해 보자.</div>
+    </div>
+  </section>
+</div>
+
+<noscript><p style="padding:20px">이 페이지는 자바스크립트가 켜져 있어야 작동합니다.</p></noscript>
+
+<!-- ===== 핵심 계산부 (화면과 무관, 검증용으로 따로 실행 가능) ===== -->
+<script id="core">
+/* ------------------------------------------------------------------
+   설정 객체: 가상 데이터를 만드는 계수와 문턱값을 모두 여기에 모았습니다.
+   x = 서식지 파괴 진행률(%) 0~100
+------------------------------------------------------------------ */
+const CONFIG = {
+  defaultSeed: 4,           // 데이터 시드 기본값 (기본 설정에서 세 가지 수업 조건이 모두 맞는 값으로 골랐음)
+  defaultSplitSeed: 7,      // 훈련/테스트 나누기 시드 기본값
+  defaultNoise: 1,          // 측정 오차(표준편차, 마리) 기본값
+  defaultStep: 5,           // 데이터 간격(%) 기본값
+  defaultRange: [0, 40],    // 학습 범위(%) 기본값
+  trainRatio: 0.7,          // 훈련 데이터 비율 (나머지는 테스트)
+  rangeMinGap: 15,          // 학습 범위의 최소 폭(%) (데이터가 너무 적어지지 않게)
+
+  tree: {                   // 과일나무(생산자): start × (1 − (x/100)^curve)
+    start: 40,              //   0%일 때 그루 수
+    curve: 1.1              //   1이면 완전한 직선, 클수록 살짝 휘어짐 (거의 비례)
+  },
+  predator: {               // 포식자·초식동물: 과일나무에 의존
+    start: 15,              //   0%일 때 마리 수
+    gentleSlope: 0.05,      //   과일나무가 충분할 때 진행률 1%당 줄어드는 마리 수 (완만)
+    treeThreshold: 22,      //   과일나무가 이 그루 수보다 적어지면 급감 시작 (문턱값)
+    steepSlope: 0.83        //   문턱값 아래에서 과일나무 1그루 줄 때마다 더 줄어드는 마리 수
+  },
+  bat: {                    // 마을 유입 박쥐: 숲이 줄수록 늘어남 (직선)
+    base: 0,                //   0%일 때 마리 수
+    slope: 0.2              //   진행률 1%당 늘어나는 마리 수 (100%에서 20마리)
+  },
+  human: {                  // 건강한 인간: 박쥐가 많아지면 감소
+    base: 10,               //   평소 인원
+    batThreshold: 10,       //   박쥐가 이 마리 수를 넘으면 감소 시작 (약 50%)
+    slope: 1                //   문턱값을 넘은 박쥐 1마리당 줄어드는 인원
+  }
+};
+
+/* 생물 4종의 이름·단위·표시 방식 (shape: 점 모양) */
+const SPECIES = [
+  { key: 'tree',     name: '과일나무',          role: '생산자',   unit: '그루', csv: '과일나무',          shape: 'circle',   color: '#00704f' },
+  { key: 'predator', name: '포식자·초식동물',   role: '소비자',   unit: '마리', csv: '포식자·초식동물',   shape: 'square',   color: '#b84a00' },
+  { key: 'bat',      name: '마을 유입 박쥐',    role: '',         unit: '마리', csv: '마을유입박쥐',      shape: 'triangle', color: '#6a2c91' },
+  { key: 'human',    name: '건강한 인간',       role: '',         unit: '명',   csv: '건강한인간',        shape: 'diamond',  color: '#0060a8' }
+];
+
+/* 같은 시드 → 같은 난수열 */
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+/* 표준정규분포 난수 (Box-Muller) */
+function gauss(rng) {
+  const u1 = Math.max(rng(), 1e-12), u2 = rng();
+  return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+}
+
+/* 잡음 없는 실제 곡선: [과일나무, 포식자·초식동물, 박쥐, 인간] */
+function trueCounts(x) {
+  const c = CONFIG;
+  const tree = Math.max(0, c.tree.start * (1 - Math.pow(x / 100, c.tree.curve)));
+  const predator = Math.max(0, c.predator.start - c.predator.gentleSlope * x
+                    - c.predator.steepSlope * Math.max(0, c.predator.treeThreshold - tree));
+  const bat = Math.max(0, c.bat.base + c.bat.slope * x);
+  const human = Math.max(0, c.human.base - c.human.slope * Math.max(0, bat - c.human.batThreshold));
+  return [tree, predator, bat, human];
+}
+
+/* 가상 데이터 만들기. 잡음 모양(z)은 시드로 정해지고 슬라이더는 크기만 바꿉니다. */
+function genData(seed, noiseSd, step) {
+  const rng = mulberry32(seed);
+  const rows = [];
+  const n = Math.round(100 / step);
+  for (let i = 0; i <= n; i++) {
+    const x = i * step;
+    const clean = trueCounts(x);
+    const z = SPECIES.map(() => gauss(rng));
+    const y = clean.map((v, k) => Math.max(0, Math.round(v + noiseSd * z[k])));
+    rows.push({ x, clean, y });
+  }
+  return rows;
+}
+
+/* 학습 범위 안 → 훈련/테스트로 무작위 분할, 범위 밖 → 새 구간 */
+function splitRows(rows, lo, hi, splitSeed, ratio) {
+  const inside = rows.filter(r => r.x >= lo && r.x <= hi);
+  const out = rows.filter(r => r.x < lo || r.x > hi);
+  const rng = mulberry32(splitSeed + 12345);
+  const idx = inside.map((_, i) => i);
+  for (let i = idx.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [idx[i], idx[j]] = [idx[j], idx[i]];
+  }
+  const nTrain = Math.max(2, Math.min(inside.length - 1, Math.round(inside.length * ratio)));
+  const byX = (a, b) => a.x - b.x;
+  const train = idx.slice(0, nTrain).map(i => inside[i]).sort(byX);
+  const test = idx.slice(nTrain).map(i => inside[i]).sort(byX);
+  return { inside, train, test, out };
+}
+
+/* 최소제곱법 단순 선형회귀 + MAE 계산 (외부 라이브러리 없음) */
+function evaluate(split, si) {
+  const tr = split.train, n = tr.length;
+  let sx = 0, sy = 0;
+  tr.forEach(r => { sx += r.x; sy += r.y[si]; });
+  const mx = sx / n, my = sy / n;
+  let sxx = 0, sxy = 0;
+  tr.forEach(r => { sxx += (r.x - mx) * (r.x - mx); sxy += (r.x - mx) * (r.y[si] - my); });
+  const b = sxx === 0 ? 0 : sxy / sxx;
+  const a = my - b * mx;
+  const mae = rs => rs.length ? rs.reduce((s, r) => s + Math.abs(r.y[si] - (a + b * r.x)), 0) / rs.length : NaN;
+  return { a, b, trainMAE: mae(tr), testMAE: mae(split.test), outMAE: mae(split.out) };
+}
+
+/* 예측선이 0 아래로 내려가는 진행률 구간 (없으면 null) */
+function negRegion(a, b) {
+  if (Math.abs(b) < 1e-12) return a < 0 ? [0, 100] : null;
+  const x0 = -a / b;
+  if (b < 0) return x0 >= 100 ? null : [Math.max(0, x0), 100];
+  return x0 <= 0 ? null : [0, Math.min(100, x0)];
+}
+</script>
+
+<!-- ===== 화면부 ===== -->
+<script>
+/* 교사 모드 비밀번호: 글자 그대로가 아니라 암호화한 값(SHA-256)만 저장합니다.
+   비밀번호를 바꾸려면 salt + 새 비밀번호를 SHA-256으로 계산한 값을 hash에 넣으세요. */
+const TEACHER_AUTH = {
+  salt: 'eco-regression-teacher:',
+  hash: '0a7bf8951006748e97f434586ceed55902b6e8e97e0bee667d661e2923516209'
+};
+/* 외부 라이브러리 없이 계산하는 SHA-256 (인터넷·보안 연결 없이도 작동) */
+function sha256Hex(msg) {
+  const bytes = new TextEncoder().encode(msg);
+  const primes = [];
+  for (let n = 2; primes.length < 64; n++) if (primes.every(p => n % p)) primes.push(n);
+  const frac = x => Math.floor((x - Math.floor(x)) * 4294967296);
+  const K = primes.map(p => frac(Math.cbrt(p)));
+  let H = primes.slice(0, 8).map(p => frac(Math.sqrt(p)));
+  const len = bytes.length, total = ((len + 9 + 63) >> 6) << 6;
+  const buf = new Uint8Array(total);
+  buf.set(bytes); buf[len] = 0x80;
+  const dv = new DataView(buf.buffer);
+  dv.setUint32(total - 8, Math.floor(len * 8 / 4294967296));
+  dv.setUint32(total - 4, (len * 8) >>> 0);
+  const w = new Uint32Array(64);
+  const rotr = (x, n) => (x >>> n) | (x << (32 - n));
+  for (let o = 0; o < total; o += 64) {
+    for (let i = 0; i < 16; i++) w[i] = dv.getUint32(o + i * 4);
+    for (let i = 16; i < 64; i++) {
+      const s0 = rotr(w[i - 15], 7) ^ rotr(w[i - 15], 18) ^ (w[i - 15] >>> 3);
+      const s1 = rotr(w[i - 2], 17) ^ rotr(w[i - 2], 19) ^ (w[i - 2] >>> 10);
+      w[i] = (w[i - 16] + s0 + w[i - 7] + s1) >>> 0;
+    }
+    let [a, b, c, d, e, f, g, h] = H;
+    for (let i = 0; i < 64; i++) {
+      const S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
+      const ch = (e & f) ^ (~e & g);
+      const t1 = (h + S1 + ch + K[i] + w[i]) >>> 0;
+      const S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
+      const maj = (a & b) ^ (a & c) ^ (b & c);
+      const t2 = (S0 + maj) >>> 0;
+      h = g; g = f; f = e; e = (d + t1) >>> 0; d = c; c = b; b = a; a = (t1 + t2) >>> 0;
+    }
+    H = [H[0] + a, H[1] + b, H[2] + c, H[3] + d, H[4] + e, H[5] + f, H[6] + g, H[7] + h].map(x => x >>> 0);
+  }
+  return H.map(x => x.toString(16).padStart(8, '0')).join('');
+}
+(function () {
+  const $ = id => document.getElementById(id);
+  const state = {
+    seed: CONFIG.defaultSeed, splitSeed: CONFIG.defaultSplitSeed, noise: CONFIG.defaultNoise,
+    step: CONFIG.defaultStep, lo: CONFIG.defaultRange[0], hi: CONFIG.defaultRange[1],
+    target: 3, tab: 'data', show: [true, true, true, true], learned: false, teacher: false
+  };
+  const TRAIN_COLOR = '#1f4e79', TEST_COLOR = '#c2410c', NEW_COLOR = '#374151';
+  const f1 = v => v.toFixed(1), f2 = v => v.toFixed(2);
+
+  function marker(shape, x, y, color, o) {
+    o = o || {};
+    const r = o.r || 6, fill = o.hollow ? '#fff' : color, sw = o.hollow ? 3 : 1.5;
+    const c = 'fill="' + fill + '" stroke="' + color + '" stroke-width="' + sw + '"';
+    switch (shape) {
+      case 'circle': return '<circle cx="' + x + '" cy="' + y + '" r="' + r + '" ' + c + '/>';
+      case 'square': return '<rect x="' + (x - r) + '" y="' + (y - r) + '" width="' + 2 * r + '" height="' + 2 * r + '" ' + c + '/>';
+      case 'triangle': return '<polygon points="' + x + ',' + (y - r - 1) + ' ' + (x - r - 1) + ',' + (y + r) + ' ' + (x + r + 1) + ',' + (y + r) + '" ' + c + '/>';
+      case 'diamond': return '<polygon points="' + x + ',' + (y - r - 2) + ' ' + (x + r + 2) + ',' + y + ' ' + x + ',' + (y + r + 2) + ' ' + (x - r - 2) + ',' + y + '" ' + c + '/>';
+      case 'cross': return '<path d="M' + (x - r) + ',' + (y - r) + 'L' + (x + r) + ',' + (y + r) + 'M' + (x - r) + ',' + (y + r) + 'L' + (x + r) + ',' + (y - r) + '" stroke="' + color + '" stroke-width="3" fill="none"/>';
+    }
+    return '';
+  }
+  function icon(shape, color, hollow) {
+    return '<svg class="ico" width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">' + marker(shape, 13, 13, color, { hollow: hollow }) + '</svg>';
+  }
+  function lineIcon(dotted, color) {
+    return '<svg class="ico" width="40" height="26" viewBox="0 0 40 26" aria-hidden="true"><line x1="3" y1="13" x2="37" y2="13" stroke="' + color + '" stroke-width="4" ' + (dotted ? 'stroke-dasharray="1 8" stroke-linecap="round"' : '') + '/></svg>';
+  }
+  function niceStep(span) {
+    const raw = span / 6, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    return [1, 2, 5, 10].map(k => k * mag).find(m => m >= raw);
+  }
+
+  function calc() {
+    const rows = genData(state.seed, state.noise, state.step);
+    const split = splitRows(rows, state.lo, state.hi, state.splitSeed, CONFIG.trainRatio);
+    return { rows, split, ev: evaluate(split, state.target) };
+  }
+
+  /* ---------- 그래프 ---------- */
+  function buildChart(c) {
+    const W = 800, H = 470, L = 74, R = 24, T = 28, B = 66;
+    const sp = SPECIES[state.target];
+    const learnMode = state.tab === 'learn';
+    const vis = learnMode ? [state.target] : [0, 1, 2, 3].filter(i => state.show[i]);
+    let dmin = 0, dmax = 10;
+    vis.forEach(i => c.rows.forEach(r => { dmax = Math.max(dmax, r.y[i]); }));
+    if (!learnMode && !vis.length) dmax = 45;
+    if (learnMode && state.learned) {
+      [0, 100].forEach(x => { const v = c.ev.a + c.ev.b * x; dmin = Math.min(dmin, v); dmax = Math.max(dmax, v); });
+    }
+    if (state.teacher) vis.forEach(i => c.rows.forEach(r => { dmax = Math.max(dmax, r.clean[i]); }));
+    const st = niceStep(dmax - dmin);
+    const ymin = Math.floor(dmin / st) * st, ymax = Math.ceil((dmax + (dmax - dmin) * 0.05) / st) * st;
+    const X = x => L + x / 100 * (W - L - R);
+    const Y = y => T + (ymax - y) / (ymax - ymin) * (H - T - B);
+    let s = '<defs><pattern id="hatch" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="9" height="9" fill="#fde8ea"/><line x1="0" y1="0" x2="0" y2="9" stroke="#a8001c" stroke-width="2.5"/></pattern></defs>';
+    s += '<rect x="0" y="0" width="' + W + '" height="' + H + '" fill="#fff"/>';
+    // 학습 범위 띠
+    s += '<rect x="' + X(state.lo) + '" y="' + T + '" width="' + (X(state.hi) - X(state.lo)) + '" height="' + (H - T - B) + '" fill="#e3eefb"/>';
+    // 음수 예측 구간
+    let neg = null;
+    if (learnMode && state.learned) {
+      neg = negRegion(c.ev.a, c.ev.b);
+      if (neg) {
+        const y0 = Math.max(Y(0), T), yb = H - B;
+        s += '<rect x="' + X(neg[0]) + '" y="' + y0 + '" width="' + (X(neg[1]) - X(neg[0])) + '" height="' + (yb - y0) + '" fill="url(#hatch)"/>';
+      }
+    }
+    // 격자와 눈금
+    for (let v = ymin; v <= ymax + 1e-9; v += st) {
+      const y = Y(v);
+      s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y + '" y2="' + y + '" stroke="' + (Math.abs(v) < 1e-9 ? '#111' : '#c3c9d3') + '" stroke-width="' + (Math.abs(v) < 1e-9 ? 2 : 1) + '"/>';
+      s += '<text x="' + (L - 10) + '" y="' + (y + 6) + '" text-anchor="end" font-size="18">' + Math.round(v * 100) / 100 + '</text>';
+    }
+    for (let x = 0; x <= 100; x += 10) {
+      s += '<line x1="' + X(x) + '" x2="' + X(x) + '" y1="' + T + '" y2="' + (H - B) + '" stroke="#e1e5eb"/>';
+      s += '<text x="' + X(x) + '" y="' + (H - B + 24) + '" text-anchor="middle" font-size="18">' + x + '</text>';
+    }
+    s += '<rect x="' + L + '" y="' + T + '" width="' + (W - L - R) + '" height="' + (H - T - B) + '" fill="none" stroke="#111" stroke-width="2"/>';
+    s += '<text x="' + (L + (W - L - R) / 2) + '" y="' + (H - 14) + '" text-anchor="middle" font-size="19" font-weight="bold">서식지 파괴 진행률 (%)</text>';
+    s += '<text transform="translate(20 ' + (T + (H - T - B) / 2) + ') rotate(-90)" text-anchor="middle" font-size="19" font-weight="bold">개체 수' + (learnMode ? ' (' + sp.unit + ')' : '') + '</text>';
+    // 띠 이름표
+    s += '<text x="' + (X(state.lo) + 6) + '" y="' + (T + 22) + '" font-size="17" font-weight="bold" fill="#0b3a73">학습 범위 ' + state.lo + '~' + state.hi + '%</text>';
+    if (state.hi <= 70) s += '<text x="' + (X(state.hi) + 8) + '" y="' + (T + 22) + '" font-size="17" font-weight="bold" fill="#374151">새 구간 (학습에 쓰지 않음)</text>';
+    // 교사용 실제 곡선
+    if (state.teacher) {
+      vis.forEach(i => {
+        let d = '';
+        for (let x = 0; x <= 100; x++) d += (x ? 'L' : 'M') + X(x).toFixed(1) + ',' + Y(trueCounts(x)[i]).toFixed(1);
+        s += '<path d="' + d + '" fill="none" stroke="' + (learnMode ? '#111' : SPECIES[i].color) + '" stroke-width="2.5" opacity="0.85"/>';
+      });
+    }
+    // 점
+    if (!learnMode) {
+      vis.forEach(i => c.rows.forEach(r => {
+        s += '<g><title>' + SPECIES[i].name + ' · 진행률 ' + r.x + '% · ' + r.y[i] + SPECIES[i].unit + '</title>' + marker(SPECIES[i].shape, X(r.x), Y(r.y[i]), SPECIES[i].color, { r: 6 }) + '</g>';
+      }));
+    } else {
+      const i = state.target;
+      c.split.out.forEach(r => { s += '<g><title>새 구간 · 진행률 ' + r.x + '% · ' + r.y[i] + sp.unit + '</title>' + marker('cross', X(r.x), Y(r.y[i]), NEW_COLOR, { r: 6 }) + '</g>'; });
+      c.split.train.forEach(r => { s += '<g><title>훈련 · 진행률 ' + r.x + '% · ' + r.y[i] + sp.unit + '</title>' + marker('circle', X(r.x), Y(r.y[i]), TRAIN_COLOR, { r: 7 }) + '</g>'; });
+      c.split.test.forEach(r => { s += '<g><title>테스트 · 진행률 ' + r.x + '% · ' + r.y[i] + sp.unit + '</title>' + marker('diamond', X(r.x), Y(r.y[i]), TEST_COLOR, { r: 6, hollow: true }) + '</g>'; });
+      // 예측 직선
+      if (state.learned) {
+        const e = c.ev, P = x => X(x).toFixed(1) + ',' + Y(e.a + e.b * x).toFixed(1);
+        const seg = (x1, x2, dotted) => x2 > x1 ? '<path d="M' + P(x1) + 'L' + P(x2) + '" fill="none" stroke="#0b4f9c" stroke-width="4" ' + (dotted ? 'stroke-dasharray="2 9" stroke-linecap="round"' : '') + '/>' : '';
+        s += seg(0, state.lo, true) + seg(state.lo, state.hi, false) + seg(state.hi, 100, true);
+        if (neg) {
+          const mid = (neg[0] + neg[1]) / 2;
+          s += '<text x="' + X(mid) + '" y="' + (H - B - 12) + '" text-anchor="middle" font-size="17" font-weight="bold" fill="#a8001c" stroke="#fff" stroke-width="5" paint-order="stroke">예측이 0 미만</text>';
+        }
+      }
+    }
+    return { svg: s, neg: neg };
+  }
+
+  function legendHtml() {
+    if (state.tab === 'data') {
+      return SPECIES.map((sp, i) => '<label><input type="checkbox" data-sp="' + i + '"' + (state.show[i] ? ' checked' : '') + '>' + icon(sp.shape, sp.color) + sp.name + '</label>').join('') +
+        (state.teacher ? '<span class="it">' + lineIcon(false, '#111') + '실제 곡선(교사용)</span>' : '');
+    }
+    const sp = SPECIES[state.target];
+    return '<span class="it"><b>' + icon(sp.shape, sp.color) + sp.name + '</b></span>' +
+      '<span class="it">' + icon('circle', TRAIN_COLOR) + '훈련 데이터</span>' +
+      '<span class="it">' + icon('diamond', TEST_COLOR, true) + '테스트 데이터</span>' +
+      '<span class="it">' + icon('cross', NEW_COLOR) + '새 구간 데이터</span>' +
+      (state.learned ? '<span class="it">' + lineIcon(false, '#0b4f9c') + '학습 범위 안 예측선</span><span class="it">' + lineIcon(true, '#0b4f9c') + '범위 밖으로 이어 그린 선</span>' : '') +
+      (state.teacher ? '<span class="it">' + lineIcon(false, '#111') + '실제 곡선(교사용)</span>' : '');
+  }
+
+  /* ---------- 결과 ---------- */
+  function resultsHtml(c) {
+    const sp = SPECIES[state.target], e = c.ev;
+    if (!state.learned) {
+      return '<h2>평가 결과</h2><p style="margin:0">왼쪽의 <b>‘학습하기’</b> 버튼을 누르면 결과가 나옵니다. (대상: ' + sp.name + ')</p>';
+    }
+    const ratio = e.testMAE > 1e-9 ? e.outMAE / e.testMAE : null;
+    let h = '<h2>평가 결과 — ' + sp.name + '</h2>';
+    h += '<p style="margin:0 0 10px">예측식: <b>개체 수 = ' + f2(e.a) + ' ' + (e.b < 0 ? '−' : '+') + ' ' + f2(Math.abs(e.b)) + ' × 진행률(%)</b></p>';
+    h += '<div class="cards">';
+    h += '<div class="card"><h3>테스트 데이터 MAE <small>(학습 범위 안 · ' + c.split.test.length + '개)</small></h3><div class="big">' + f2(e.testMAE) + '</div><div class="sent">평균 ' + f1(e.testMAE) + sp.unit + ' 틀렸다</div></div>';
+    h += '<div class="card out"><h3>학습 범위 밖 전체 MAE <small>(새 구간 · ' + c.split.out.length + '개)</small></h3><div class="big">' + (c.split.out.length ? f2(e.outMAE) : '—') + '</div><div class="sent">' + (c.split.out.length ? '평균 ' + f1(e.outMAE) + sp.unit + ' 틀렸다' : '새 구간 데이터가 없습니다') + '</div></div>';
+    h += '</div>';
+    if (c.split.out.length && ratio !== null) {
+      h += '<p style="margin:10px 0 0">범위 밖 오차는 테스트 오차의 약 <b>' + f1(ratio) + '배</b>입니다. ' + (ratio >= 2 ? '학습하지 않은 구간에서 훨씬 많이 틀렸습니다.' : '범위 밖에서도 비교적 잘 맞았습니다.') + '</p>';
+    }
+    h += '<p class="hint">MAE(평균 절대 오차) = 각 점에서 |실제값 − 예측값|을 구해 모두 더한 뒤 점의 개수로 나눈 값입니다. 단위는 원래 값(' + sp.unit + ')과 같고, 작을수록 잘 맞습니다. 참고로 훈련 데이터 MAE는 ' + f2(e.trainMAE) + '입니다.</p>';
+    return h;
+  }
+
+  function teacherHtml(c) {
+    let h = '<h2>교사용: 생물 4종 MAE 비교표</h2><p class="hint" style="margin-top:0">현재 설정(학습 범위 ' + state.lo + '~' + state.hi + '%, 잡음 ' + f1(state.noise) + ', 시드 ' + state.seed + '/' + state.splitSeed + ')으로 4종을 모두 학습한 결과입니다. 그래프에는 잡음 없는 실제 곡선이 겹쳐 그려집니다.</p>';
+    h += '<div class="tablewrap" style="max-height:none"><table><thead><tr><th class="l">생물</th><th>테스트 MAE</th><th>범위 밖 MAE</th><th>배율(범위 밖÷테스트)</th><th class="l">해석</th></tr></thead><tbody>';
+    SPECIES.forEach((sp, i) => {
+      const e = evaluate(c.split, i);
+      const ratio = e.testMAE > 1e-9 && c.split.out.length ? e.outMAE / e.testMAE : null;
+      const note = ratio === null ? '계산 불가' : (ratio >= 2 ? '범위 밖에서 크게 틀림' : '범위 밖에서도 비교적 맞음');
+      h += '<tr' + (i === state.target ? ' class="sel"' : '') + '><td class="l">' + icon(sp.shape, sp.color) + ' ' + sp.name + '</td><td>' + f2(e.testMAE) + '</td><td>' + (c.split.out.length ? f2(e.outMAE) : '—') + '</td><td>' + (ratio === null ? '—' : f1(ratio) + '배') + '</td><td class="l">' + note + '</td></tr>';
+    });
+    return h + '</tbody></table></div>';
+  }
+
+  function tableHtml(c) {
+    const trX = new Set(c.split.train.map(r => r.x)), teX = new Set(c.split.test.map(r => r.x));
+    let h = '<table><thead><tr><th>진행률(%)</th>' + SPECIES.map(sp => '<th>' + sp.name + '<br>(' + sp.unit + ')</th>').join('') + '<th>구분</th></tr></thead><tbody>';
+    c.rows.forEach(r => {
+      const g = trX.has(r.x) ? '훈련' : teX.has(r.x) ? '테스트' : '새 구간';
+      h += '<tr><td>' + r.x + '</td>' + r.y.map(v => '<td>' + v + '</td>').join('') + '<td class="' + (g === '테스트' ? 'g-test' : g === '새 구간' ? 'g-new' : '') + '">' + g + '</td></tr>';
+    });
+    return h + '</tbody></table>';
+  }
+
+  /* ---------- 전체 그리기 ---------- */
+  function render() {
+    const c = calc();
+    $('noiseVal').textContent = f1(state.noise) + '마리';
+    $('rangeText').textContent = '학습 범위: ' + state.lo + '% ~ ' + state.hi + '%';
+    $('dual').style.setProperty('--lo', state.lo);
+    $('dual').style.setProperty('--hi', state.hi);
+    $('splitInfo').innerHTML = '학습 범위 안 ' + c.split.inside.length + '개 → <b>훈련 ' + c.split.train.length + '개</b> · <b>테스트 ' + c.split.test.length + '개</b><br>학습 범위 밖(새 구간) ' + c.split.out.length + '개';
+    $('dlNew').disabled = c.split.out.length === 0;
+    $('tabs').innerHTML = [['data', '① 데이터 보기'], ['learn', '② 나누기·학습'], ['table', '표 보기']].map(t =>
+      '<button type="button" role="tab" data-tab="' + t[0] + '" aria-selected="' + (state.tab === t[0]) + '">' + t[1] + '</button>').join('');
+    const isTable = state.tab === 'table';
+    $('viewChart').hidden = isTable;
+    $('viewTable').hidden = !isTable;
+    if (isTable) {
+      $('tableWrap').innerHTML = tableHtml(c);
+    } else {
+      $('legend').innerHTML = legendHtml();
+      const ch = buildChart(c);
+      $('chart').innerHTML = ch.svg;
+      let note = '';
+      if (state.tab === 'learn' && state.learned && ch.neg) {
+        note = '<div class="warn">⚠ 예측값이 음수인 구간: 진행률 약 ' + Math.round(ch.neg[0]) + '% ~ ' + Math.round(ch.neg[1]) + '% (빗금 구간). 개체 수는 0보다 작을 수 없으므로 <u>실제로는 있을 수 없는 값</u>입니다.</div>';
+      } else if (state.tab === 'learn' && !state.learned) {
+        note = '<p class="hint" style="margin:0">훈련 점(●)과 테스트 점(◇)이 나뉘었습니다. ‘학습하기’를 누르면 직선이 그려집니다.</p>';
+      }
+      $('chartNote').innerHTML = note;
+    }
+    $('results').innerHTML = resultsHtml(c);
+    $('teacherBox').hidden = !state.teacher;
+    $('teacherBox').innerHTML = state.teacher ? teacherHtml(c) : '';
+  }
+
+  /* ---------- CSV ---------- */
+  function download(rows, name) {
+    const head = ['진행률'].concat(SPECIES.map(s => s.csv)).join(',');
+    const body = rows.map(r => [r.x].concat(r.y).join(','));
+    const text = '\uFEFF' + [head].concat(body).join('\r\n') + '\r\n';
+    const url = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  /* ---------- 입력 연결 ---------- */
+  function changed() { state.learned = false; render(); }
+  function intVal(el, fallback) { const v = parseInt(el.value, 10); return isNaN(v) ? fallback : v; }
+
+  $('targetSet').insertAdjacentHTML('beforeend', SPECIES.map((sp, i) =>
+    '<label class="radio"><input type="radio" name="target" value="' + i + '"' + (i === state.target ? ' checked' : '') + '>' + icon(sp.shape, sp.color) + sp.name + '</label>').join(''));
+  $('seed').value = state.seed;
+  $('splitSeed').value = state.splitSeed;
+  $('noise').value = state.noise;
+  $('stepSel').value = String(state.step);
+  $('loR').value = state.lo; $('hiR').value = state.hi;
+
+  $('seed').addEventListener('input', e => { state.seed = intVal(e.target, 0); changed(); });
+  $('splitSeed').addEventListener('input', e => { state.splitSeed = intVal(e.target, 0); changed(); });
+  $('noise').addEventListener('input', e => { state.noise = parseFloat(e.target.value); changed(); });
+  $('stepSel').addEventListener('change', e => { state.step = parseInt(e.target.value, 10); changed(); });
+  $('loR').addEventListener('input', e => {
+    let v = parseInt(e.target.value, 10);
+    if (v > state.hi - CONFIG.rangeMinGap) v = state.hi - CONFIG.rangeMinGap;
+    e.target.value = v; state.lo = v; changed();
+  });
+  $('hiR').addEventListener('input', e => {
+    let v = parseInt(e.target.value, 10);
+    if (v < state.lo + CONFIG.rangeMinGap) v = state.lo + CONFIG.rangeMinGap;
+    e.target.value = v; state.hi = v; changed();
+  });
+  $('targetSet').addEventListener('change', e => { if (e.target.name === 'target') { state.target = parseInt(e.target.value, 10); changed(); } });
+  $('learnBtn').addEventListener('click', () => {
+    state.learned = true; state.tab = 'learn'; render();
+    $('results').scrollIntoView({ block: 'nearest' });
+  });
+  /* ---------- 교사 모드 비밀번호 ---------- */
+  function setTeacher(on) {
+    state.teacher = on;
+    $('teacherBtn').textContent = on ? '교사 모드 끄기' : '교사 모드 (비밀번호)';
+    $('teacherForm').hidden = true;
+    $('teacherMsg').hidden = true;
+    render();
+  }
+  $('teacherBtn').addEventListener('click', () => {
+    if (state.teacher) { setTeacher(false); return; }
+    const f = $('teacherForm');
+    f.hidden = !f.hidden;
+    $('teacherMsg').hidden = true;
+    if (!f.hidden) $('teacherPw').focus();
+  });
+  $('teacherForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const pw = $('teacherPw').value;
+    $('teacherPw').value = '';
+    if (sha256Hex(TEACHER_AUTH.salt + pw) === TEACHER_AUTH.hash) {
+      setTeacher(true);
+    } else {
+      $('teacherMsg').textContent = '비밀번호가 맞지 않습니다.';
+      $('teacherMsg').hidden = false;
+      $('teacherPw').focus();
+    }
+  });
+  $('tabs').addEventListener('click', e => { const b = e.target.closest('button[data-tab]'); if (b) { state.tab = b.dataset.tab; render(); } });
+  $('legend').addEventListener('change', e => { if (e.target.dataset.sp !== undefined) { state.show[+e.target.dataset.sp] = e.target.checked; render(); } });
+  $('dlTrain').addEventListener('click', () => { const c = calc(); download(c.split.inside, 'ecosystem_train_range_' + state.lo + '-' + state.hi + '.csv'); });
+  $('dlNew').addEventListener('click', () => { const c = calc(); download(c.split.out, 'ecosystem_new_range_outside_' + state.lo + '-' + state.hi + '.csv'); });
+
+  render();
+})();
+</script>
+</body>
+</html>
